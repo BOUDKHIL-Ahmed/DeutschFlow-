@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#F3EFE6" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="DeutschFlow" />
+  <title>DeutschFlow</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="top-bar-row">
+        <div class="pill-switcher" role="tablist" aria-label="Navigation">
+          <button class="pill-tab active" data-tab="practice">Practice</button>
+          <button class="pill-tab" data-tab="favorites">Favorites</button>
+          <button class="pill-tab" data-tab="vocabulary">Vocabulary</button>
+        </div>
+        <button id="btn-settings" class="circle-btn" aria-label="API & Sync Settings" title="Settings">•••</button>
+      </div>
+      <div class="brand-row">
+        <div>
+          <h1 class="brand-title">DeutschFlow</h1>
+          <p class="brand-subtitle" id="sync-status-line">Synced with local SQLite database</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- Toast banner -->
+    <div id="toast" class="toast hidden" role="status"></div>
+
+    <!-- PRACTICE VIEW -->
+    <main id="view-practice" class="view active">
+      <section id="practice-empty" class="card empty-card hidden">
+        <p class="muted">Your vocabulary collection is empty. Add a few German words first.</p>
+        <button id="btn-go-vocab" class="btn-primary-pill">Go to Vocabulary</button>
+      </section>
+
+      <section id="practice-main" class="hidden">
+        <div class="controls-row">
+          <select id="practice-level-filter" class="pill-select" aria-label="Filter level">
+            <option value="All">All</option>
+            <option value="A2">A2</option>
+            <option value="B1">B1</option>
+            <option value="B2">B2</option>
+          </select>
+          <select id="practice-vocab-select" class="pill-select flex-1" aria-label="Target expression"></select>
+          <button id="btn-random-vocab" class="btn-soft-pill" type="button">Random</button>
+        </div>
+
+        <div id="target-vocab-card" class="card target-card"></div>
+
+        <button id="btn-generate" class="btn-primary-pill full-width" type="button">
+          Generate English Challenge
+        </button>
+
+        <section id="challenge-section" class="hidden">
+          <div id="prompt-card" class="prompt-card"></div>
+
+          <form id="translation-form" class="translation-form">
+            <label for="translation-input" class="section-label">Your German translation</label>
+            <textarea
+              id="translation-input"
+              class="rounded-textarea"
+              rows="4"
+              placeholder="Write your German translation here..."
+            ></textarea>
+            <button id="btn-submit-translation" class="btn-primary-pill full-width" type="submit">
+              Check Translation
+            </button>
+          </form>
+        </section>
+
+        <section id="evaluation-section" class="evaluation-section hidden"></section>
+      </section>
+    </main>
+
+    <!-- FAVORITES VIEW -->
+    <main id="view-favorites" class="view hidden">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="fav-search" class="pill-search" type="search" placeholder="Search English, German, or context..." />
+      </div>
+      <div class="chip-row" id="fav-level-chips">
+        <button class="chip active" data-level="All">All</button>
+        <button class="chip" data-level="A2">A2</button>
+        <button class="chip" data-level="B1">B1</button>
+        <button class="chip" data-level="B2">B2</button>
+      </div>
+      <p id="fav-count" class="count-line"></p>
+      <div id="favorites-list" class="stack-list"></div>
+    </main>
+
+    <!-- VOCABULARY VIEW -->
+    <main id="view-vocabulary" class="view hidden">
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="vocab-search" class="pill-search" type="search" placeholder="Search German, English, or grammar..." />
+      </div>
+      <div class="chip-row" id="vocab-level-chips">
+        <button class="chip active" data-level="All">All</button>
+        <button class="chip" data-level="A2">A2</button>
+        <button class="chip" data-level="B1">B1</button>
+        <button class="chip" data-level="B2">B2</button>
+      </div>
+      <p id="vocab-count" class="count-line"></p>
+      <div id="vocab-list" class="clean-list"></div>
+      <button id="btn-fab-add" class="fab-pill" type="button">+ Add Word</button>
+    </main>
+  </div>
+
+  <!-- VOCAB ADD / EDIT MODAL SHEET -->
+  <div id="vocab-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="sheet-card">
+      <div class="sheet-header">
+        <h2 id="vocab-modal-title" class="sheet-title">Add Vocabulary</h2>
+        <button id="btn-close-vocab-modal" class="circle-btn small" type="button" aria-label="Close">✕</button>
+      </div>
+      <form id="vocab-form" class="sheet-form">
+        <input type="hidden" id="vocab-edit-id" />
+        <label class="field-label">German word or expression</label>
+        <input id="vocab-german" class="pill-input" type="text" required placeholder="e.g. sich auf jdn. verlassen" />
+
+        <label class="field-label">English meaning</label>
+        <input id="vocab-english" class="pill-input" type="text" required placeholder="e.g. to rely on someone" />
+
+        <div class="two-col">
+          <div>
+            <label class="field-label">Level</label>
+            <select id="vocab-level" class="pill-select full-width">
+              <option value="A2">A2</option>
+              <option value="B1" selected>B1</option>
+              <option value="B2">B2</option>
+            </select>
+          </div>
+          <div>
+            <label class="field-label">Grammar info</label>
+            <input id="vocab-grammar" class="pill-input" type="text" placeholder="reflexive + auf (Akk.)" />
+          </div>
+        </div>
+
+        <label class="field-label">Notes (optional)</label>
+        <input id="vocab-notes" class="pill-input" type="text" placeholder="Where encountered or nuance" />
+
+        <button class="btn-primary-pill full-width" type="submit">Save Entry</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- SETTINGS MODAL SHEET -->
+  <div id="settings-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="sheet-card">
+      <div class="sheet-header">
+        <h2 class="sheet-title">AI &amp; Sync Settings</h2>
+        <button id="btn-close-settings" class="circle-btn small" type="button" aria-label="Close">✕</button>
+      </div>
+      <p id="settings-summary" class="muted small-text"></p>
+      <form id="settings-form" class="sheet-form">
+        <label class="field-label">Provider Mode</label>
+        <select id="setting-provider" class="pill-select full-width">
+          <option value="groq_first">Groq primary, Gemini backup (Fastest)</option>
+          <option value="gemini_first">Gemini primary, Groq backup</option>
+          <option value="groq">Groq only</option>
+          <option value="gemini">Gemini only</option>
+        </select>
+
+        <label class="field-label">Groq API Key (leave blank to keep saved)</label>
+        <input id="setting-groq-key" class="pill-input" type="password" placeholder="gsk_..." />
+
+        <label class="field-label">Groq Model</label>
+        <input id="setting-groq-model" class="pill-input" type="text" placeholder="openai/gpt-oss-120b" />
+
+        <label class="field-label">Gemini API Key (leave blank to keep saved)</label>
+        <input id="setting-gemini-key" class="pill-input" type="password" placeholder="AIza..." />
+
+        <label class="field-label">Gemini Model</label>
+        <input id="setting-gemini-model" class="pill-input" type="text" placeholder="gemini-2.5-flash" />
+
+        <button class="btn-primary-pill full-width" type="submit">Save Settings to Laptop .env</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

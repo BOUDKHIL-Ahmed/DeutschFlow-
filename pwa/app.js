@@ -49,10 +49,117 @@ async function api(url, options = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// Voice Reader (Natural German TTS)
+// ---------------------------------------------------------------------------
+
+const SPEAKER_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+const STOP_ICON_SVG = `<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>`;
+
+const ttsAudioCache = new Map();
+let activeTts = { audio: null, button: null, text: "" };
+
+function renderTtsButton(text) {
+  return `<button type="button" class="tts-btn" data-tts-text="${escapeHtml(text)}" aria-label="Listen to German sentence" title="Listen">${SPEAKER_ICON_SVG}<span>Listen</span></button>`;
+}
+
+function setTtsButtonState(btn, mode) {
+  if (!btn) return;
+  btn.classList.remove("playing");
+  if (mode === "loading") {
+    btn.disabled = true;
+    btn.innerHTML = `${SPEAKER_ICON_SVG}<span>Loading...</span>`;
+  } else if (mode === "playing") {
+    btn.disabled = false;
+    btn.classList.add("playing");
+    btn.innerHTML = `${STOP_ICON_SVG}<span>Stop</span>`;
+  } else {
+    btn.disabled = false;
+    btn.innerHTML = `${SPEAKER_ICON_SVG}<span>Listen</span>`;
+  }
+}
+
+function stopActiveTts() {
+  if (activeTts.audio) {
+    activeTts.audio.pause();
+    activeTts.audio.currentTime = 0;
+  }
+  if (activeTts.button) {
+    setTtsButtonState(activeTts.button, "idle");
+  }
+  activeTts = { audio: null, button: null, text: "" };
+}
+
+function base64ToBlobUrl(base64, mimeType) {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  const blob = new Blob([bytes], { type: mimeType || "audio/wav" });
+  return URL.createObjectURL(blob);
+}
+
+async function handleTtsPlay(btn) {
+  const text = (btn.dataset.ttsText || "").trim();
+  if (!text) return;
+
+  if (activeTts.button === btn && activeTts.audio && !activeTts.audio.paused) {
+    stopActiveTts();
+    return;
+  }
+
+  stopActiveTts();
+
+  try {
+    let url = ttsAudioCache.get(text);
+    if (!url) {
+      setTtsButtonState(btn, "loading");
+      const data = await api("/api/tts", {
+        method: "POST",
+        body: JSON.stringify({ text }),
+      });
+      url = base64ToBlobUrl(data.audio_base64, data.mime_type);
+      if (ttsAudioCache.size >= 50) {
+        const oldestKey = ttsAudioCache.keys().next().value;
+        const oldestUrl = ttsAudioCache.get(oldestKey);
+        if (oldestUrl) URL.revokeObjectURL(oldestUrl);
+        ttsAudioCache.delete(oldestKey);
+      }
+      ttsAudioCache.set(text, url);
+    }
+
+    const audio = new Audio(url);
+    activeTts = { audio, button: btn, text };
+    setTtsButtonState(btn, "playing");
+
+    audio.addEventListener("ended", () => {
+      if (activeTts.button === btn) {
+        stopActiveTts();
+      }
+    });
+    audio.addEventListener("error", () => {
+      if (activeTts.button === btn) {
+        stopActiveTts();
+      }
+      showToast("Unable to play audio.");
+    });
+
+    await audio.play();
+  } catch (err) {
+    setTtsButtonState(btn, "idle");
+    if (activeTts.button === btn) {
+      activeTts = { audio: null, button: null, text: "" };
+    }
+    showToast(err.message);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Navigation
 // ---------------------------------------------------------------------------
 
 function switchTab(tab) {
+  stopActiveTts();
   state.tab = tab;
   document.querySelectorAll(".pill-tab").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.tab === tab);
@@ -170,12 +277,15 @@ function buildFeedbackHtml(ev, referenceGerman, userTranslation) {
     <span class="section-label">Your submission</span>
     <p class="small-text muted" style="margin:4px 0 10px;">${escapeHtml(userTranslation)}</p>
     <span class="section-label">Corrected German</span>
-    <div class="corrected-box">${escapeHtml(ev.corrected_german)}</div>
+    <div class="corrected-box sentence-audio-row">
+      <span class="sentence-audio-text">${escapeHtml(ev.corrected_german)}</span>
+      ${ev.corrected_german ? renderTtsButton(ev.corrected_german) : ""}
+    </div>
     <div class="card">
       <p class="small-text" style="margin:0 0 8px;"><strong>Grammar explanations</strong><br/>${escapeHtml(ev.grammar_feedback || "No grammatical mistakes.")}</p>
       <p class="small-text" style="margin:0 0 8px;"><strong>Word order</strong><br/>${escapeHtml(ev.word_order_feedback || "Word order is natural and correct.")}</p>
       ${ev.natural_expressions ? `<p class="small-text" style="margin:0 0 8px;"><strong>Optional stylistic improvements</strong><br/>${escapeHtml(ev.natural_expressions)}</p>` : ""}
-      ${alts.length ? `<p class="small-text" style="margin:0;"><strong>Alternative valid translations</strong></p><ul class="small-text" style="margin:4px 0 0;padding-left:18px;">${alts.map((a) => `<li>${escapeHtml(a)}</li>`).join("")}</ul>` : ""}
+      ${alts.length ? `<p class="small-text" style="margin:0;"><strong>Alternative valid translations</strong></p><ul class="alt-audio-list small-text">${alts.map((a) => `<li class="alt-audio-item"><span class="sentence-audio-text">${escapeHtml(a)}</span>${renderTtsButton(a)}</li>`).join("")}</ul>` : ""}
     </div>
   `;
 }
@@ -218,6 +328,7 @@ function renderEvaluation() {
 
 async function handleGenerate() {
   if (!state.selectedVocabId) return;
+  stopActiveTts();
   const btn = $("btn-generate");
   btn.disabled = true;
   btn.textContent = "Generating...";
@@ -305,7 +416,7 @@ function renderFavorites() {
       const meta = [item.level, item.context_tag, item.structure_tag].filter(Boolean).join(" · ");
       const attemptHtml = item.latest_attempt
         ? buildFeedbackHtml(item.latest_attempt, item.reference_german, item.latest_attempt.user_translation)
-        : `<p class="small-text" style="margin:6px 0 0;"><strong>Reference German:</strong> ${escapeHtml(item.reference_german)}</p>`;
+        : `<div class="sentence-audio-row" style="margin-top:6px;"><p class="small-text sentence-audio-text" style="margin:0;"><strong>Reference German:</strong> ${escapeHtml(item.reference_german)}</p>${item.reference_german ? renderTtsButton(item.reference_german) : ""}</div>`;
 
       return `
         <div class="card">
@@ -513,13 +624,11 @@ async function handleSaveVocab(e) {
 async function openSettingsModal() {
   try {
     const info = await api("/api/settings");
-    const active = [info.has_groq ? "Groq" : "", info.has_gemini ? "Gemini" : ""].filter(Boolean).join(" + ") || "None";
-    $("settings-summary").textContent = `Configured keys: ${active} · Synced with local deutschflow.db`;
-    $("setting-provider").value = info.provider || "groq_first";
+    const active = [info.has_gemini ? "Gemini" : "", info.has_groq ? "Groq" : ""].filter(Boolean).join(" + ") || "None";
+    $("settings-summary").textContent = `Configured providers: ${active}`;
+    $("setting-provider").value = info.provider || "gemini_first";
     $("setting-groq-model").value = info.groq_model || "openai/gpt-oss-120b";
-    $("setting-gemini-model").value = info.gemini_model || "gemini-2.5-flash";
-    $("setting-groq-key").value = "";
-    $("setting-gemini-key").value = "";
+    $("setting-gemini-model").value = info.gemini_model || "gemini-4-hydrogen";
   } catch (err) {
     showToast(err.message);
   }
@@ -533,14 +642,12 @@ async function handleSaveSettings(e) {
       method: "POST",
       body: JSON.stringify({
         provider: $("setting-provider").value,
-        groq_api_key: $("setting-groq-key").value,
         groq_model: $("setting-groq-model").value,
-        gemini_api_key: $("setting-gemini-key").value,
         gemini_model: $("setting-gemini-model").value,
       }),
     });
     $("settings-modal").classList.add("hidden");
-    showToast("Saved settings to .env");
+    showToast("Saved AI settings");
   } catch (err) {
     showToast(err.message);
   }
@@ -621,6 +728,13 @@ async function init() {
   $("btn-settings").addEventListener("click", openSettingsModal);
   $("btn-close-settings").addEventListener("click", () => $("settings-modal").classList.add("hidden"));
   $("settings-form").addEventListener("submit", handleSaveSettings);
+
+  document.addEventListener("click", (e) => {
+    const ttsBtn = e.target.closest("[data-tts-text]");
+    if (ttsBtn) {
+      handleTtsPlay(ttsBtn);
+    }
+  });
 
   await refreshAllVocab();
 }

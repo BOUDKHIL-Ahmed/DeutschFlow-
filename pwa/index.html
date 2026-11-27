@@ -7,6 +7,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="DeutschFlow" />
+  <meta name="description" content="Personal German translation trainer with AI-generated contextual challenges and structured grammar and meaning feedback." />
+  <meta property="og:title" content="DeutschFlow" />
+  <meta property="og:description" content="Personal German translation trainer with AI-generated contextual challenges and structured grammar and meaning feedback." />
   <title>DeutschFlow</title>
   <link rel="manifest" href="/manifest.json" />
   <link rel="apple-touch-icon" href="/static/apple-touch-icon.png" />
@@ -27,7 +30,7 @@
       <div class="brand-row">
         <div>
           <h1 class="brand-title">DeutschFlow</h1>
-          <p class="brand-subtitle" id="sync-status-line">Synced with local SQLite database</p>
+          <p class="brand-subtitle" id="sync-status-line">Personal German translation trainer</p>
         </div>
       </div>
     </header>
@@ -157,32 +160,26 @@
   <div id="settings-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
     <div class="sheet-card">
       <div class="sheet-header">
-        <h2 class="sheet-title">AI &amp; Sync Settings</h2>
+        <h2 class="sheet-title">AI Settings</h2>
         <button id="btn-close-settings" class="circle-btn small" type="button" aria-label="Close">✕</button>
       </div>
       <p id="settings-summary" class="muted small-text"></p>
       <form id="settings-form" class="sheet-form">
         <label class="field-label">Provider Mode</label>
         <select id="setting-provider" class="pill-select full-width">
-          <option value="groq_first">Groq primary, Gemini backup (Fastest)</option>
           <option value="gemini_first">Gemini primary, Groq backup</option>
-          <option value="groq">Groq only</option>
+          <option value="groq_first">Groq primary, Gemini backup (Fastest)</option>
           <option value="gemini">Gemini only</option>
+          <option value="groq">Groq only</option>
         </select>
 
-        <label class="field-label">Groq API Key (leave blank to keep saved)</label>
-        <input id="setting-groq-key" class="pill-input" type="password" placeholder="gsk_..." />
+        <label class="field-label">Gemini Model</label>
+        <input id="setting-gemini-model" class="pill-input" type="text" placeholder="gemini-4-hydrogen" />
 
         <label class="field-label">Groq Model</label>
         <input id="setting-groq-model" class="pill-input" type="text" placeholder="openai/gpt-oss-120b" />
 
-        <label class="field-label">Gemini API Key (leave blank to keep saved)</label>
-        <input id="setting-gemini-key" class="pill-input" type="password" placeholder="AIza..." />
-
-        <label class="field-label">Gemini Model</label>
-        <input id="setting-gemini-model" class="pill-input" type="text" placeholder="gemini-2.5-flash" />
-
-        <button class="btn-primary-pill full-width" type="submit">Save Settings to Laptop .env</button>
+        <button class="btn-primary-pill full-width" type="submit">Save Settings</button>
       </form>
     </div>
   </div>

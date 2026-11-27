@@ -1,0 +1,8 @@
+{
+  "name": "DeutschFlow",
+  "description": "Personal German translation trainer with AI-generated contextual challenges and structured grammar and meaning feedback.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

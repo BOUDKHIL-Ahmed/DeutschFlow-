@@ -1,4 +1,4 @@
-const CACHE_NAME = "deutschflow-pwa-v1";
+const CACHE_NAME = "deutschflow-pwa-v2";
 const SHELL_ASSETS = [
   "/",
   "/manifest.json",
